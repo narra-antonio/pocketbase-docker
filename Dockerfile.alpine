@@ -1,0 +1,75 @@
+# ===========================================
+# STAGE 1: Download PocketBase
+# ===========================================
+FROM alpine:latest AS downloader
+
+ARG POCKETBASE_VERSION=0.36.8
+ARG TARGETARCH
+
+WORKDIR /tmp
+
+RUN apk add --no-cache \
+    curl \
+    unzip \
+    ca-certificates
+
+RUN ARCH=${TARGETARCH} && \
+    if [ "$ARCH" = "amd64" ]; then ARCH="amd64"; \
+    elif [ "$ARCH" = "arm64" ]; then ARCH="arm64"; \
+    else echo "Unsupported architecture: $ARCH" && exit 1; fi && \
+    curl -fSL \
+      "https://github.com/pocketbase/pocketbase/releases/download/v${POCKETBASE_VERSION}/pocketbase_${POCKETBASE_VERSION}_linux_${ARCH}.zip" \
+      -o pocketbase.zip && \
+    unzip pocketbase.zip && \
+    chmod +x pocketbase
+
+# ===========================================
+# STAGE 2: Runtime
+# ===========================================
+FROM alpine:latest
+
+LABEL org.opencontainers.image.title="pocketbase-docker"
+LABEL org.opencontainers.image.description="Unofficial configurable PocketBase Docker image with full environment-based setup"
+LABEL org.opencontainers.image.url="https://github.com/narra-antonio/pocketbase-docker"
+LABEL org.opencontainers.image.source="https://github.com/narra-antonio/pocketbase-docker"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.authors="Antonio Narra <antonio@antonionarra.io>"
+
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    bash \
+    wget
+
+# Create non-root user
+RUN addgroup -g 1000 pocketbase && \
+    adduser -D -u 1000 -G pocketbase pocketbase
+
+WORKDIR /app
+
+# Copy PocketBase binary
+COPY --from=downloader /tmp/pocketbase /app/pocketbase
+
+# Copy initial migration to internal path (not mounted by user)
+COPY --chown=pocketbase:pocketbase pb_migrations/1000000000_initial_settings.js \
+     /app/pb_migrations_default/1000000000_initial_settings.js
+
+# Copy entrypoint
+COPY --chown=pocketbase:pocketbase docker-entrypoint.sh /app/docker-entrypoint.sh
+
+# Create required directories
+RUN mkdir -p /pb_data /pb_migrations /pb_hooks /pb_public /pb_templates && \
+    chown -R pocketbase:pocketbase /pb_data /pb_migrations /pb_hooks /pb_public /pb_templates /app
+
+USER pocketbase
+
+# Default port — override with PB_PORT env var and map accordingly in docker run or compose.yaml
+EXPOSE 8090
+
+VOLUME ["/pb_data", "/pb_migrations", "/pb_hooks", "/pb_public", "/pb_templates"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider \
+        http://localhost:${PB_PORT:-8090}/api/health || exit 1
+
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
