@@ -5,13 +5,13 @@
 
 [![Version](https://img.shields.io/github/v/release/narra-antonio/pocketbase-docker?label=version&style=flat-square)](https://github.com/narra-antonio/pocketbase-docker/releases)
 [![PocketBase](https://img.shields.io/badge/PocketBase-v0.39.0-blue?style=flat-square)](https://pocketbase.io)
-[![Docker Pulls](https://img.shields.io/docker/pulls/narra-antonio/pocketbase-docker?style=flat-square)](https://hub.docker.com/r/narra-antonio/pocketbase-docker)
+[![Docker Pulls](https://img.shields.io/docker/pulls/tonynarra/pocketbase-docker?style=flat-square)](https://hub.docker.com/r/tonynarra/pocketbase-docker)
 [![License](https://img.shields.io/github/license/narra-antonio/pocketbase-docker?style=flat-square)](./LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/narra-antonio/pocketbase-docker/release.yml?style=flat-square)](https://github.com/narra-antonio/pocketbase-docker/actions)
-[![Alpine](https://img.shields.io/badge/alpine-latest-0D597F?style=flat-square&logo=alpine-linux&logoColor=white)](https://hub.docker.com/r/narra-antonio/pocketbase-docker/tags)
-[![Debian](https://img.shields.io/badge/debian-trixie--slim-A81D33?style=flat-square&logo=debian&logoColor=white)](https://hub.docker.com/r/narra-antonio/pocketbase-docker/tags)
-[![UBI](https://img.shields.io/badge/ubi-9--minimal-EE0000?style=flat-square&logo=redhat&logoColor=white)](https://hub.docker.com/r/narra-antonio/pocketbase-docker/tags)
-[![Arch](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-lightgrey?style=flat-square)](https://hub.docker.com/r/narra-antonio/pocketbase-docker/tags)
+[![Alpine](https://img.shields.io/badge/alpine-latest-0D597F?style=flat-square&logo=alpine-linux&logoColor=white)](https://hub.docker.com/r/tonynarra/pocketbase-docker/tags)
+[![Debian](https://img.shields.io/badge/debian-trixie--slim-A81D33?style=flat-square&logo=debian&logoColor=white)](https://hub.docker.com/r/tonynarra/pocketbase-docker/tags)
+[![UBI](https://img.shields.io/badge/ubi-9--minimal-EE0000?style=flat-square&logo=redhat&logoColor=white)](https://hub.docker.com/r/tonynarra/pocketbase-docker/tags)
+[![Arch](https://img.shields.io/badge/arch-amd64%20%7C%20arm64-lightgrey?style=flat-square)](https://hub.docker.com/r/tonynarra/pocketbase-docker/tags)
 [![Changelog](https://img.shields.io/badge/changelog-latest-green?style=flat-square)](./CHANGELOG.md)
 
 ---
@@ -50,7 +50,7 @@ docker compose up -d
 ```yaml
 services:
   pocketbase:
-    image: narra-antonio/pocketbase-docker:latest
+    image: tonynarra/pocketbase-docker:latest
     container_name: pocketbase
     restart: unless-stopped
     ports:
@@ -65,7 +65,7 @@ services:
 
 ```bash
 # 1. Pull dell'immagine
-docker pull narra-antonio/pocketbase-docker:latest
+docker pull tonynarra/pocketbase-docker:latest
 
 # 2. Avvia
 docker run -d \
@@ -77,7 +77,7 @@ docker run -d \
   -e PB_ADMIN_PASSWORD=una-password-sicura \
   -e PB_APP_NAME="My App" \
   -e PB_APP_URL=http://localhost:8090 \
-  narra-antonio/pocketbase-docker:latest
+  tonynarra/pocketbase-docker:latest
 ```
 
 Al primo avvio PocketBase è disponibile su:
