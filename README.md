@@ -5,7 +5,7 @@
 
 [![Version](https://img.shields.io/github/v/release/narra-antonio/pocketbase-docker?label=version&style=flat-square)](https://github.com/narra-antonio/pocketbase-docker/releases)
 [![PocketBase](https://img.shields.io/badge/PocketBase-v0.39.0-blue?style=flat-square)](https://pocketbase.io)
-[![Docker Pulls](https://img.shields.io/docker/pulls/narra-antonio/pocketbase-docker?style=flat-square)](https://hub.docker.com/r/narra-antonio/pocketbase-docker)
+[![Docker Pulls](https://img.shields.io/docker/pulls/tonynarra/pocketbase-docker?style=flat-square)](https://hub.docker.com/r/tonynarra/pocketbase-docker)
 [![License](https://img.shields.io/github/license/narra-antonio/pocketbase-docker?style=flat-square)](./LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/narra-antonio/pocketbase-docker/release.yml?style=flat-square)](https://github.com/narra-antonio/pocketbase-docker/actions)
 [![Alpine](https://img.shields.io/badge/alpine-latest-0D597F?style=flat-square&logo=alpine-linux&logoColor=white)](https://hub.docker.com/r/narra-antonio/pocketbase-docker/tags)
