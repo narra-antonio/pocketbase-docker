@@ -15,7 +15,7 @@ versionamento adottata per i tag su Docker Hub e ghcr.io.
 ### Scarica PocketBase
 
 ```bash
-curl -fSL "https://github.com/pocketbase/pocketbase/releases/download/v0.36.8/pocketbase_0.36.8_linux_arm64.zip" -o pocketbase.zip && \
+curl -fSL "https://github.com/pocketbase/pocketbase/releases/download/v0.39.0/pocketbase_0.39.0_linux_arm64.zip" -o pocketbase.zip && \
 unzip pocketbase.zip && \
 rm pocketbase.zip CHANGELOG.md README.md
 ```
@@ -42,7 +42,7 @@ La versione di PocketBase è configurabile tramite `ARG`:
 ```bash
 docker build \
   -f Dockerfile.alpine \
-  --build-arg POCKETBASE_VERSION=0.36.8 \
+  --build-arg POCKETBASE_VERSION=0.39.0 \
   -t pocketbase-docker:local-alpine .
 ```
 
@@ -58,7 +58,7 @@ docker buildx create --name pb-builder --use
 docker buildx build \
   -f Dockerfile.alpine \
   --platform linux/amd64,linux/arm64 \
-  --build-arg POCKETBASE_VERSION=0.36.8 \
+  --build-arg POCKETBASE_VERSION=0.39.0 \
   -t tonynarra/pocketbase-docker:local-alpine \
   --push .
 
@@ -66,7 +66,7 @@ docker buildx build \
 docker buildx build \
   -f Dockerfile.debian \
   --platform linux/amd64,linux/arm64 \
-  --build-arg POCKETBASE_VERSION=0.36.8 \
+  --build-arg POCKETBASE_VERSION=0.39.0 \
   -t tonynarra/pocketbase-docker:local-trixie \
   --push .
 
@@ -74,7 +74,7 @@ docker buildx build \
 docker buildx build \
   -f Dockerfile.ubi \
   --platform linux/amd64,linux/arm64 \
-  --build-arg POCKETBASE_VERSION=0.36.8 \
+  --build-arg POCKETBASE_VERSION=0.39.0 \
   -t tonynarra/pocketbase-docker:local-ubi \
   --push .
 ```

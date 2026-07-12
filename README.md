@@ -4,7 +4,7 @@
 > via variabili d'ambiente, zero configurazione manuale.
 
 [![Version](https://img.shields.io/github/v/release/narra-antonio/pocketbase-docker?label=version&style=flat-square)](https://github.com/narra-antonio/pocketbase-docker/releases)
-[![PocketBase](https://img.shields.io/badge/PocketBase-v0.36.8-blue?style=flat-square)](https://pocketbase.io)
+[![PocketBase](https://img.shields.io/badge/PocketBase-v0.39.0-blue?style=flat-square)](https://pocketbase.io)
 [![Docker Pulls](https://img.shields.io/docker/pulls/narra-antonio/pocketbase-docker?style=flat-square)](https://hub.docker.com/r/narra-antonio/pocketbase-docker)
 [![License](https://img.shields.io/github/license/narra-antonio/pocketbase-docker?style=flat-square)](./LICENSE)
 [![Build](https://img.shields.io/github/actions/workflow/status/narra-antonio/pocketbase-docker/release.yml?style=flat-square)](https://github.com/narra-antonio/pocketbase-docker/actions)

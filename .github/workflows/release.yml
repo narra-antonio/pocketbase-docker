@@ -1,11 +1,115 @@
 name: release
 
+# Rilascio: push di un tag "v*" (es. v0.39.0) o avvio manuale.
+# La versione dell'immagine specchia la versione di PocketBase; per fix della sola
+# immagine usare un suffisso di revisione (es. v0.39.0-r2 → PocketBase resta 0.39.0).
+#
+# Registri:
+#   - ghcr.io  → SEMPRE (usa il GITHUB_TOKEN automatico, nessun secret da configurare)
+#   - Docker Hub → solo se sono impostati i secret DOCKERHUB_USERNAME e DOCKERHUB_TOKEN
 on:
+  push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
+env:
+  DOCKERHUB_IMAGE: tonynarra/pocketbase-docker
+  GHCR_IMAGE: ghcr.io/narra-antonio/pocketbase-docker
+
 jobs:
-  placeholder:
+  # ---- Gate: la suite deve passare prima di pubblicare ----
+  test:
+    name: Test suite (gate)
     runs-on: ubuntu-latest
     steps:
-      - name: Placeholder
-        run: echo "Not implemented yet"
+      - uses: actions/checkout@v4
+      - name: Esegui la suite (variante alpine)
+        run: bash test/run-tests.sh
+
+  # ---- Build & push multi-arch delle 3 varianti ----
+  release:
+    name: Build & push (${{ matrix.variant }})
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write        # necessario per push su ghcr con GITHUB_TOKEN
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: alpine
+            suffix: alpine
+            latest: "true"
+          - variant: debian
+            suffix: trixie
+            latest: "false"
+          - variant: ubi
+            suffix: ubi9-minimal
+            latest: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deriva versione immagine e PocketBase
+        id: ver
+        run: |
+          V="${GITHUB_REF_NAME#v}"                 # es. 0.39.0  (o 0.39.0-r2)
+          PB="$(echo "$V" | sed 's/-.*//')"        # versione PocketBase: 0.39.0
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "pb=$PB"     >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      # ghcr: sempre, con il token automatico del workflow
+      - name: Login GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Docker Hub: solo se i secret sono configurati
+      - name: Login Docker Hub
+        if: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Componi i tag
+        id: tags
+        env:
+          HAS_DH: ${{ secrets.DOCKERHUB_TOKEN != '' && 'true' || 'false' }}
+        run: |
+          V="${{ steps.ver.outputs.version }}"
+          S="${{ matrix.suffix }}"
+          # ghcr — sempre
+          T="${GHCR_IMAGE}:${V}-${S},${GHCR_IMAGE}:${S}"
+          if [ "${{ matrix.latest }}" = "true" ]; then
+            T="${T},${GHCR_IMAGE}:${V},${GHCR_IMAGE}:latest"
+          fi
+          # Docker Hub — solo se secret presenti
+          if [ "$HAS_DH" = "true" ]; then
+            T="${T},${DOCKERHUB_IMAGE}:${V}-${S},${DOCKERHUB_IMAGE}:${S}"
+            if [ "${{ matrix.latest }}" = "true" ]; then
+              T="${T},${DOCKERHUB_IMAGE}:${V},${DOCKERHUB_IMAGE}:latest"
+            fi
+          fi
+          echo "tags=$T" >> "$GITHUB_OUTPUT"
+          echo "Docker Hub push: $HAS_DH"
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.${{ matrix.variant }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            POCKETBASE_VERSION=${{ steps.ver.outputs.pb }}
+          labels: |
+            org.opencontainers.image.version=${{ steps.ver.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}

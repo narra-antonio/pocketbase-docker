@@ -62,7 +62,7 @@ Esempi:
 feat: aggiunge supporto per variabile PB_TPL_OTP_BODY
 fix: corregge il prefisso timestamp nelle migration utente
 docs: aggiorna envs.md con le nuove variabili S3
-chore: aggiorna PocketBase a v0.36.8
+chore: aggiorna PocketBase a v0.39.0
 ```
 
 ---

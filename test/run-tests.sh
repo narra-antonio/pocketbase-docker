@@ -46,7 +46,7 @@ trap cleanup EXIT
 
 start_pb() {  # start_pb <name> <hostport> <ctport> <datadir> [extra docker args...]
     local name="$1" hport="$2" cport="$3" datadir="$4"; shift 4
-    mkdir -p "${datadir}/pb_data"   # pre-crea come utente corrente (UID 1000) così il container non-root può scrivere il DB
+    mkdir -p "${datadir}/pb_data" && chmod 777 "${datadir}/pb_data"   # pre-crea come utente corrente (UID 1000) così il container non-root può scrivere il DB
     CONTAINERS+=("$name")
     docker rm -f "$name" >/dev/null 2>&1
     docker run -d --name "$name" \
@@ -118,7 +118,7 @@ test_1() {
 test_2() {
     log "TEST 2 — Migration utente (ordine + nomi + 50 record)"
     local d="${TMP_BASE}/t2"
-    mkdir -p "${d}/pb_migrations"
+    mkdir -p "${d}/pb_migrations" && chmod 777 "${d}/pb_migrations"
     cp "${REPO_ROOT}/test/fixtures/migrations/1_tabella.js" "${d}/pb_migrations/"
     cp "${REPO_ROOT}/test/fixtures/migrations/2_seed.js"    "${d}/pb_migrations/"
     start_pb pbtest2 3001 3001 "$d" -v "${d}/pb_migrations:/pb_migrations"

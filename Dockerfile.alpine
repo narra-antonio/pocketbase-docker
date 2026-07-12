@@ -3,7 +3,7 @@
 # ===========================================
 FROM alpine:latest AS downloader
 
-ARG POCKETBASE_VERSION=0.36.8
+ARG POCKETBASE_VERSION=0.39.0
 ARG TARGETARCH
 
 WORKDIR /tmp
