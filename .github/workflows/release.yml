@@ -16,6 +16,8 @@ on:
 env:
   DOCKERHUB_IMAGE: tonynarra/pocketbase-docker
   GHCR_IMAGE: ghcr.io/narra-antonio/pocketbase-docker
+  GITEA_REGISTRY: git.server-home.app
+  GITEA_IMAGE: git.server-home.app/tony/pocketbase-docker
 
 jobs:
   # ---- Gate: la suite deve passare prima di pubblicare ----
@@ -79,6 +81,13 @@ jobs:
         run: |
           if [ -n "$DH_TOKEN" ]; then echo "has=true" >> "$GITHUB_OUTPUT"; else echo "has=false" >> "$GITHUB_OUTPUT"; fi
 
+      - name: Rileva secret Gitea
+        id: gt
+        env:
+          GT_TOKEN: ${{ secrets.GITEA_TOKEN }}
+        run: |
+          if [ -n "$GT_TOKEN" ]; then echo "has=true" >> "$GITHUB_OUTPUT"; else echo "has=false" >> "$GITHUB_OUTPUT"; fi
+
       # Docker Hub: solo se i secret sono configurati
       - name: Login Docker Hub
         if: steps.dh.outputs.has == 'true'
@@ -87,10 +96,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Gitea registry (mirror interno/tailnet): solo se i secret sono configurati
+      - name: Login Gitea registry
+        if: steps.gt.outputs.has == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.GITEA_REGISTRY }}
+          username: ${{ secrets.GITEA_USERNAME }}
+          password: ${{ secrets.GITEA_TOKEN }}
+
       - name: Componi i tag
         id: tags
         env:
           HAS_DH: ${{ steps.dh.outputs.has }}
+          HAS_GITEA: ${{ steps.gt.outputs.has }}
         run: |
           V="${{ steps.ver.outputs.version }}"
           S="${{ matrix.suffix }}"
@@ -106,8 +125,15 @@ jobs:
               T="${T},${DOCKERHUB_IMAGE}:${V},${DOCKERHUB_IMAGE}:latest"
             fi
           fi
+          # Gitea — solo se secret presenti
+          if [ "$HAS_GITEA" = "true" ]; then
+            T="${T},${GITEA_IMAGE}:${V}-${S},${GITEA_IMAGE}:${S}"
+            if [ "${{ matrix.latest }}" = "true" ]; then
+              T="${T},${GITEA_IMAGE}:${V},${GITEA_IMAGE}:latest"
+            fi
+          fi
           echo "tags=$T" >> "$GITHUB_OUTPUT"
-          echo "Docker Hub push: $HAS_DH"
+          echo "Docker Hub: $HAS_DH | Gitea: $HAS_GITEA"
 
       - name: Build & push
         uses: docker/build-push-action@v6
@@ -116,6 +142,8 @@ jobs:
           file: ./Dockerfile.${{ matrix.variant }}
           platforms: linux/amd64,linux/arm64
           push: true
+          provenance: false        # niente attestation → rimuove l'entry OS/Arch "unknown/unknown"
+          sbom: false
           tags: ${{ steps.tags.outputs.tags }}
           build-args: |
             POCKETBASE_VERSION=${{ steps.ver.outputs.pb }}
