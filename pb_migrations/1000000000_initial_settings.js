@@ -104,7 +104,7 @@ migrate((app) => {
     const readTemplate = (path) => {
         if (!path) return ''
         try {
-            return String($os.readFile(path))
+            return toString($os.readFile(path))   // PB JSVM: converte []byte→string (String() li stringificherebbe come array di numeri)
         } catch (e) {
             console.log(`⚠️  Template not found: ${path}`)
             return ''
