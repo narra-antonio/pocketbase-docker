@@ -70,9 +70,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Rileva se i secret Docker Hub sono configurati.
+      # NB: il context `secrets` NON è usabile in `if:`, quindi lo passiamo via env e produciamo un output.
+      - name: Rileva secret Docker Hub
+        id: dh
+        env:
+          DH_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -n "$DH_TOKEN" ]; then echo "has=true" >> "$GITHUB_OUTPUT"; else echo "has=false" >> "$GITHUB_OUTPUT"; fi
+
       # Docker Hub: solo se i secret sono configurati
       - name: Login Docker Hub
-        if: ${{ secrets.DOCKERHUB_TOKEN != '' }}
+        if: steps.dh.outputs.has == 'true'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -81,7 +90,7 @@ jobs:
       - name: Componi i tag
         id: tags
         env:
-          HAS_DH: ${{ secrets.DOCKERHUB_TOKEN != '' && 'true' || 'false' }}
+          HAS_DH: ${{ steps.dh.outputs.has }}
         run: |
           V="${{ steps.ver.outputs.version }}"
           S="${{ matrix.suffix }}"
