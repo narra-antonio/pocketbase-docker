@@ -14,6 +14,7 @@ Prima release pubblica. Include **PocketBase 0.39.0**.
 - **Template email per-collection (PB 0.23+)**: impostare un `PB_TPL_*_BODY` faceva crashare la migration iniziale, che scriveva nella posizione legacy `settings.meta.*Template`. I template ora vengono applicati alla collection auth `users` (`verificationTemplate`, `resetPasswordTemplate`, `confirmEmailChangeTemplate`, `otp.emailTemplate`).
 - **Lettura template**: il corpo del template veniva salvato come array di byte (`String()` invece del corretto `toString()` del JSVM). Corretto.
 - **Reinizializzazione coerente con la doc**: rimuovere `/pb_data/.pb_initialized` ora ri-applica davvero le impostazioni dal `.env` (in precedenza la migration risultava già applicata in `_migrations` e veniva saltata). L'entrypoint copia la migration iniziale con un nome univoco ad ogni first-boot.
+- **Build variante UBI**: rimosso `curl` dall'install (`Dockerfile.ubi`) — su UBI9-minimal è già presente come `curl-minimal` e `microdnf` andava in conflitto ("Could not depsolve"), rompendo la build della variante ubi9-minimal.
 
 ### Documentazione
 

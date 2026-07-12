@@ -8,8 +8,9 @@ ARG TARGETARCH
 
 WORKDIR /tmp
 
+# NB: NON installare `curl` su UBI9-minimal — è già presente come `curl-minimal`
+# e microdnf va in conflitto (Could not depsolve). curl-minimal basta per il download.
 RUN microdnf install -y \
-    curl \
     unzip \
     ca-certificates \
     && microdnf clean all
