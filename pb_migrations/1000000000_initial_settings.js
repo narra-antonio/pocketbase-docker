@@ -11,7 +11,7 @@ migrate((app) => {
     settings.meta.appName = process.env.PB_APP_NAME || 'My PocketBase App'
     settings.meta.appURL = process.env.PB_APP_URL || 'http://localhost:8090'
     settings.meta.senderName = process.env.PB_SENDER_NAME || 'Support'
-    settings.meta.senderAddress = process.env.PB_SENDER_ADDRESS || 'noreply@localhost'
+    settings.meta.senderAddress = process.env.PB_SENDER_ADDRESS || 'noreply@example.com'
     settings.meta.hideControls = process.env.PB_HIDE_CONTROLS === 'true'
 
     // ===========================================
@@ -111,40 +111,44 @@ migrate((app) => {
         }
     }
 
-    if (process.env.PB_TPL_VERIFICATION_SUBJECT) {
-        settings.meta.verificationTemplate.subject = process.env.PB_TPL_VERIFICATION_SUBJECT
-    }
-    if (process.env.PB_TPL_VERIFICATION_BODY) {
-        const body = readTemplate(process.env.PB_TPL_VERIFICATION_BODY)
-        if (body) settings.meta.verificationTemplate.body = body
-    }
-
-    if (process.env.PB_TPL_RESET_PWD_SUBJECT) {
-        settings.meta.resetPasswordTemplate.subject = process.env.PB_TPL_RESET_PWD_SUBJECT
-    }
-    if (process.env.PB_TPL_RESET_PWD_BODY) {
-        const body = readTemplate(process.env.PB_TPL_RESET_PWD_BODY)
-        if (body) settings.meta.resetPasswordTemplate.body = body
-    }
-
-    if (process.env.PB_TPL_CONFIRM_EMAIL_SUBJECT) {
-        settings.meta.confirmEmailChangeTemplate.subject = process.env.PB_TPL_CONFIRM_EMAIL_SUBJECT
-    }
-    if (process.env.PB_TPL_CONFIRM_EMAIL_BODY) {
-        const body = readTemplate(process.env.PB_TPL_CONFIRM_EMAIL_BODY)
-        if (body) settings.meta.confirmEmailChangeTemplate.body = body
-    }
-
-    if (process.env.PB_TPL_OTP_SUBJECT) {
-        settings.meta.otpTemplate.subject = process.env.PB_TPL_OTP_SUBJECT
-    }
-    if (process.env.PB_TPL_OTP_BODY) {
-        const body = readTemplate(process.env.PB_TPL_OTP_BODY)
-        if (body) settings.meta.otpTemplate.body = body
-    }
-
-    // Save all settings
+    // Save global settings first
     app.save(settings)
+
+    // Email templates → auth collection "users" (PB 0.23+: per-collection, NON più settings.meta)
+    // NB: settare settings.meta.verificationTemplate qui crasherebbe (undefined) su PB 0.36.
+    if (process.env.PB_TPL_VERIFICATION_SUBJECT || process.env.PB_TPL_VERIFICATION_BODY ||
+        process.env.PB_TPL_RESET_PWD_SUBJECT || process.env.PB_TPL_RESET_PWD_BODY ||
+        process.env.PB_TPL_CONFIRM_EMAIL_SUBJECT || process.env.PB_TPL_CONFIRM_EMAIL_BODY ||
+        process.env.PB_TPL_OTP_SUBJECT || process.env.PB_TPL_OTP_BODY) {
+        try {
+            const usersCol = app.findCollectionByNameOrId('users')
+
+            const vt = usersCol.verificationTemplate
+            if (process.env.PB_TPL_VERIFICATION_SUBJECT) vt.subject = process.env.PB_TPL_VERIFICATION_SUBJECT
+            if (process.env.PB_TPL_VERIFICATION_BODY) { const b = readTemplate(process.env.PB_TPL_VERIFICATION_BODY); if (b) vt.body = b }
+            usersCol.verificationTemplate = vt
+
+            const rt = usersCol.resetPasswordTemplate
+            if (process.env.PB_TPL_RESET_PWD_SUBJECT) rt.subject = process.env.PB_TPL_RESET_PWD_SUBJECT
+            if (process.env.PB_TPL_RESET_PWD_BODY) { const b = readTemplate(process.env.PB_TPL_RESET_PWD_BODY); if (b) rt.body = b }
+            usersCol.resetPasswordTemplate = rt
+
+            const ct = usersCol.confirmEmailChangeTemplate
+            if (process.env.PB_TPL_CONFIRM_EMAIL_SUBJECT) ct.subject = process.env.PB_TPL_CONFIRM_EMAIL_SUBJECT
+            if (process.env.PB_TPL_CONFIRM_EMAIL_BODY) { const b = readTemplate(process.env.PB_TPL_CONFIRM_EMAIL_BODY); if (b) ct.body = b }
+            usersCol.confirmEmailChangeTemplate = ct
+
+            const otp = usersCol.otp
+            if (process.env.PB_TPL_OTP_SUBJECT) otp.emailTemplate.subject = process.env.PB_TPL_OTP_SUBJECT
+            if (process.env.PB_TPL_OTP_BODY) { const b = readTemplate(process.env.PB_TPL_OTP_BODY); if (b) otp.emailTemplate.body = b }
+            usersCol.otp = otp
+
+            app.save(usersCol)
+            console.log('✅ Email templates applied to "users" collection')
+        } catch (e) {
+            console.log(`⚠️  Could not apply email templates: ${e}`)
+        }
+    }
     console.log(`✅ Settings configured: ${settings.meta.appName}`)
     console.log(`   SMTP:        ${settings.smtp.enabled ? 'enabled' : 'disabled'}`)
     console.log(`   S3:          ${settings.s3.enabled ? 'enabled' : 'disabled'}`)

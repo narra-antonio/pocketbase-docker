@@ -46,7 +46,7 @@ trap cleanup EXIT
 
 start_pb() {  # start_pb <name> <hostport> <ctport> <datadir> [extra docker args...]
     local name="$1" hport="$2" cport="$3" datadir="$4"; shift 4
-    mkdir -p "$datadir"
+    mkdir -p "${datadir}/pb_data"   # pre-crea come utente corrente (UID 1000) così il container non-root può scrivere il DB
     CONTAINERS+=("$name")
     docker rm -f "$name" >/dev/null 2>&1
     docker run -d --name "$name" \
@@ -55,6 +55,7 @@ start_pb() {  # start_pb <name> <hostport> <ctport> <datadir> [extra docker args
         -e PB_ADMIN_EMAIL="$ADMIN_EMAIL" \
         -e PB_ADMIN_PASSWORD="$ADMIN_PASS" \
         -e PB_APP_NAME="TestApp" \
+        -e PB_SENDER_ADDRESS="noreply@example.com" \
         -v "${datadir}/pb_data:/pb_data" \
         "$@" \
         "$IMAGE" >/dev/null
@@ -64,6 +65,15 @@ wait_health() {  # wait_health <hostport>
     local port="$1" i
     for i in $(seq 1 40); do
         curl -fsS "http://127.0.0.1:${port}/api/health" >/dev/null 2>&1 && return 0
+        sleep 1
+    done
+    return 1
+}
+
+wait_lock() {  # wait_lock <datadir> — attende che il first-boot completi (.pb_initialized)
+    local d="$1" i
+    for i in $(seq 1 40); do
+        [ -f "${d}/pb_data/.pb_initialized" ] && return 0
         sleep 1
     done
     return 1
@@ -98,6 +108,7 @@ test_1() {
     local code
     code="$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/_/ )"
     [ "$code" = "200" ] && ok "dashboard /_/ raggiungibile ($code)" || { ko "dashboard /_/ = $code"; fail_test "T1 porta custom"; return; }
+    docker rm -f pbtest1 >/dev/null 2>&1
     pass_test "T1 porta custom"
 }
 
@@ -112,6 +123,7 @@ test_2() {
     cp "${REPO_ROOT}/test/fixtures/migrations/2_seed.js"    "${d}/pb_migrations/"
     start_pb pbtest2 3001 3001 "$d" -v "${d}/pb_migrations:/pb_migrations"
     if ! wait_health 3001; then ko "health non risponde"; docker logs pbtest2 2>&1 | tail -20; fail_test "T2 migration utente"; return; fi
+    wait_lock "$d" || info "lock non ancora presente (first-boot lento)"
 
     local logs; logs="$(docker logs pbtest2 2>&1)"
     # a) la nostra migration gira per prima
@@ -129,6 +141,7 @@ test_2() {
     if [ -z "$tok" ]; then ko "auth superuser fallita"; fail_test "T2 migration utente"; return; fi
     local total; total="$(curl -fsS "http://127.0.0.1:3001/api/collections/tabella/records?perPage=1" -H "Authorization: ${tok}" 2>/dev/null | sed -n 's/.*"totalItems":\([0-9]*\).*/\1/p')"
     if [ "$total" = "50" ]; then ok "collection 'tabella' con 50 record"; else ko "record attesi 50, trovati: ${total:-0}"; fail_test "T2 migration utente"; return; fi
+    docker rm -f pbtest2 >/dev/null 2>&1
     pass_test "T2 migration utente"
 }
 
@@ -156,7 +169,8 @@ test_3() {
     done
     if [ "$found" = "1" ]; then
         ok "template custom applicato (marker trovato in ${where})"
-        pass_test "T3 template email"
+        docker rm -f pbtest3 >/dev/null 2>&1
+    pass_test "T3 template email"
     else
         ko "marker template NON trovato — i template da env potrebbero non applicarsi in PB ${VARIANT}"
         info "in PB 0.23+ i template email sono per-collection: la migration setta settings.meta.* (posizione legacy) → possibile bug"
@@ -172,6 +186,7 @@ test_4() {
     local d="${TMP_BASE}/t4"
     start_pb pbtest4 3003 3003 "$d"
     if ! wait_health 3003; then ko "health non risponde"; docker logs pbtest4 2>&1 | tail -20; fail_test "T4 reinit"; return; fi
+    wait_lock "$d" || true
     local tok; tok="$(pb_token 3003)"
     # cambia appName via API
     curl -fsS -X PATCH "http://127.0.0.1:3003/api/settings" -H "Authorization: ${tok}" \
@@ -193,7 +208,8 @@ test_4() {
     local after; after="$(curl -fsS "http://127.0.0.1:3003/api/settings" -H "Authorization: ${tok}" 2>/dev/null | sed -n 's/.*"appName":"\([^"]*\)".*/\1/p')"
     if [ "$after" = "TestApp" ]; then
         ok "settings tornati al valore .env (appName=TestApp)"
-        pass_test "T4 reinit"
+        docker rm -f pbtest4 >/dev/null 2>&1
+    pass_test "T4 reinit"
     else
         ko "appName atteso 'TestApp', trovato '${after}' — la migration initial non ri-applica i settings su reinit con pb_data persistente"
         info "probabile: _migrations già contiene 1000000000 → --automigrate la salta. Reinit resetta i settings solo con pb_data pulito."

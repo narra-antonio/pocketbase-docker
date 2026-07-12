@@ -59,6 +59,7 @@ COPY --chown=pocketbase:pocketbase pb_migrations/1000000000_initial_settings.js 
 
 # Copy entrypoint
 COPY --chown=pocketbase:pocketbase docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
 
 # Create required directories
 RUN mkdir -p /pb_data /pb_migrations /pb_hooks /pb_public /pb_templates && \

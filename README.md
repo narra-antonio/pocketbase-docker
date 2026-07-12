@@ -33,7 +33,7 @@
 
 ```bash
 # 1. Copia il file di esempio
-cp env.example .env
+cp .env.example .env
 
 # 2. Modifica almeno queste variabili
 # PB_ADMIN_EMAIL, PB_ADMIN_PASSWORD, PB_APP_NAME, PB_APP_URL

@@ -109,10 +109,15 @@ first_boot() {
   echo "📋 Renaming user migrations..."
   rename_user_migrations
 
-  # Copy our initial migration
+  # Copy our initial migration con nome UNICO ad ogni first-boot.
+  # Motivo: con nome fisso, dopo il primo avvio la migration resta in _migrations e
+  # --automigrate la salta → su reinit (lock rimosso) i settings NON tornerebbero al .env
+  # (comportamento documentato in getting-started.md). Un nome nuovo forza il re-apply.
+  # Prefisso "1"+nanosecondi: resta < PB_HIGH_PREFIX (9...) così gira comunque PRIMA delle migration utente.
   mkdir -p "${PB_MIGRATIONS_DIR}"
+  PB_MIGRATION_DST="${PB_MIGRATIONS_DIR}/1$(date +%s%N)_initial_settings.js"
   cp "${PB_MIGRATION_SRC}" "${PB_MIGRATION_DST}"
-  echo "📋 Initial settings migration copied"
+  echo "📋 Initial settings migration copied (${PB_MIGRATION_DST##*/})"
 
   # Build and start PocketBase in background
   local cmd
