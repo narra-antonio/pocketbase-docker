@@ -12,21 +12,32 @@ PB_MIGRATIONS_DIR="/pb_migrations"
 PB_HOOKS_DIR="/pb_hooks"
 PB_PUBLIC_DIR="/pb_public"
 PB_INIT_LOCK="${PB_DATA_DIR}/.pb_initialized"
+
+# Settings iniziali (solo settings, NON una migration utente): baked nell'immagine.
 PB_MIGRATION_SRC="/app/pb_migrations_default/1000000000_initial_settings.js"
-PB_MIGRATION_DST="${PB_MIGRATIONS_DIR}/1000000000_initial_settings.js"
-PB_HIGH_PREFIX="99999999999_"
+# Dir DEDICATA per la fase settings — mai /pb_migrations, così i file utente non vengono toccati
+# e l'ordine "settings prima, migration utente dopo" è garantito per FASE, non per nome file.
+PB_BOOTSTRAP_DIR="/app/pb_bootstrap"
+# Hooks vuoti in fase 1: isola i settings (i tuoi hook potrebbero riferire collezioni
+# create dalle migration utente, che in fase 1 non esistono ancora).
+PB_BOOTSTRAP_HOOKS="/app/pb_bootstrap_hooks"
+
 PB_HOST="${PB_HOST:-0.0.0.0}"
 PB_PORT="${PB_PORT:-8090}"
 
 # ===========================================
 # Build serve command
+#   $1 = migrationsDir (default: /pb_migrations)
+#   $2 = hooksDir      (default: /pb_hooks)
 # ===========================================
 build_cmd() {
+  local migdir="${1:-${PB_MIGRATIONS_DIR}}"
+  local hookdir="${2:-${PB_HOOKS_DIR}}"
   local cmd="${PB_BINARY} serve"
   cmd="${cmd} --http=${PB_HOST}:${PB_PORT}"
   cmd="${cmd} --dir=${PB_DATA_DIR}"
-  cmd="${cmd} --migrationsDir=${PB_MIGRATIONS_DIR}"
-  cmd="${cmd} --hooksDir=${PB_HOOKS_DIR}"
+  cmd="${cmd} --migrationsDir=${migdir}"
+  cmd="${cmd} --hooksDir=${hookdir}"
   cmd="${cmd} --publicDir=${PB_PUBLIC_DIR}"
   cmd="${cmd} --automigrate"
 
@@ -63,98 +74,66 @@ wait_for_health() {
 }
 
 # ===========================================
-# Rename user migrations with high prefix
-# to ensure our migration runs first
-# ===========================================
-rename_user_migrations() {
-  if [ ! -d "${PB_MIGRATIONS_DIR}" ]; then
-    mkdir -p "${PB_MIGRATIONS_DIR}"
-    return
-  fi
-
-  for f in "${PB_MIGRATIONS_DIR}"/*.js; do
-    [ -f "${f}" ] || continue
-    local basename
-    basename="$(basename "${f}")"
-    # Skip if already prefixed by us
-    if [[ "${basename}" == ${PB_HIGH_PREFIX}* ]]; then
-      continue
-    fi
-    mv "${f}" "${PB_MIGRATIONS_DIR}/${PB_HIGH_PREFIX}${basename}"
-    echo "   renamed: ${basename} → ${PB_HIGH_PREFIX}${basename}"
-  done
-}
-
-# ===========================================
-# Restore user migrations to original names
-# ===========================================
-restore_user_migrations() {
-  for f in "${PB_MIGRATIONS_DIR}"/${PB_HIGH_PREFIX}*.js; do
-    [ -f "${f}" ] || continue
-    local basename
-    basename="$(basename "${f}")"
-    local original="${basename#${PB_HIGH_PREFIX}}"
-    mv "${f}" "${PB_MIGRATIONS_DIR}/${original}"
-    echo "   restored: ${basename} → ${original}"
-  done
-}
-
-# ===========================================
-# First boot initialization
+# First boot: FASE 1 — applica i settings iniziali
+#   Gira SOLO quando manca il lock (primo boot o reinit).
+#   Applica system migrations + settings in una dir dedicata, senza vedere /pb_migrations.
+#   NON tocca i file utente, NON rinomina nulla.
 # ===========================================
 first_boot() {
-  echo "🚀 First boot detected — running initialization..."
+  echo "🚀 First boot detected — applying initial settings..."
 
-  # Rename user migrations
-  echo "📋 Renaming user migrations..."
-  rename_user_migrations
+  mkdir -p "${PB_BOOTSTRAP_DIR}" "${PB_BOOTSTRAP_HOOKS}"
 
-  # Copy our initial migration con nome UNICO ad ogni first-boot.
+  # Copia i settings con nome UNICO ad ogni first-boot.
   # Motivo: con nome fisso, dopo il primo avvio la migration resta in _migrations e
-  # --automigrate la salta → su reinit (lock rimosso) i settings NON tornerebbero al .env
-  # (comportamento documentato in getting-started.md). Un nome nuovo forza il re-apply.
-  # Prefisso "1"+nanosecondi: resta < PB_HIGH_PREFIX (9...) così gira comunque PRIMA delle migration utente.
-  mkdir -p "${PB_MIGRATIONS_DIR}"
-  PB_MIGRATION_DST="${PB_MIGRATIONS_DIR}/1$(date +%s%N)_initial_settings.js"
-  cp "${PB_MIGRATION_SRC}" "${PB_MIGRATION_DST}"
-  echo "📋 Initial settings migration copied (${PB_MIGRATION_DST##*/})"
+  # --automigrate la salta → su reinit (lock rimosso) i settings NON tornerebbero al .env.
+  # Un nome nuovo forza il re-apply. La dir è baked/scrivibile: nessun churn dei file utente.
+  local dst="${PB_BOOTSTRAP_DIR}/1$(date +%s%N)_initial_settings.js"
+  cp "${PB_MIGRATION_SRC}" "${dst}"
+  echo "📋 Initial settings staged (${dst##*/})"
 
-  # Build and start PocketBase in background
-  local cmd
-  cmd="$(build_cmd)"
-  echo "▶️  Starting PocketBase: ${cmd}"
-  eval "${cmd}" &
+  # Avvia PB in background sulla dir dedicata (system migrations + settings).
+  # Invocazione DIRETTA (non eval): così $! è il PID reale di pocketbase e il kill lo termina
+  # davvero. Con `eval "$cmd" &`, $! sarebbe la subshell e pocketbase resterebbe orfano tenendo
+  # occupata la porta → la fase 2 fallirebbe il bind (address already in use).
+  local -a args=(serve
+    --http="${PB_HOST}:${PB_PORT}"
+    --dir="${PB_DATA_DIR}"
+    --migrationsDir="${PB_BOOTSTRAP_DIR}"
+    --hooksDir="${PB_BOOTSTRAP_HOOKS}"
+    --publicDir="${PB_PUBLIC_DIR}"
+    --automigrate)
+  [ -n "${PB_ENCRYPTION_KEY}" ] && args+=(--encryptionEnv=PB_ENCRYPTION_KEY)
+  [ "${PB_DEBUG}" = "true" ] && args+=(--dev)
+  echo "▶️  Phase 1 (settings): ${PB_BINARY} ${args[*]}"
+  "${PB_BINARY}" "${args[@]}" &
   local PB_PID=$!
 
-  # Wait for health check
   if ! wait_for_health; then
     kill "${PB_PID}" 2>/dev/null || true
+    wait "${PB_PID}" 2>/dev/null || true
+    echo "❌ Settings phase failed"
     exit 1
   fi
 
-  # Restore user migrations
-  echo "📋 Restoring user migrations..."
-  restore_user_migrations
+  # Ferma SOLO il PB temporaneo della fase 1.
+  # Il container NON si ferma: PID 1 è questo script, che prosegue a normal_boot → exec.
+  kill "${PB_PID}" 2>/dev/null || true
+  wait "${PB_PID}" 2>/dev/null || true
 
-  # Remove our initial migration
-  rm -f "${PB_MIGRATION_DST}"
-  echo "🗑️  Initial settings migration removed"
-
-  # Create lock file
+  # Pulizia file staged + lock
+  rm -f "${PB_BOOTSTRAP_DIR}"/1*_initial_settings.js
   touch "${PB_INIT_LOCK}"
-  echo "🔒 Lock file created: ${PB_INIT_LOCK}"
-
-  echo "🎉 Initialization completed — handing off to PocketBase process"
-
-  # Wait for PocketBase to exit
-  wait "${PB_PID}"
+  echo "🔒 Initialized — lock: ${PB_INIT_LOCK}"
+  echo "🎉 Settings applied — proceeding to user migrations"
 }
 
 # ===========================================
-# Normal boot
+# Normal boot: FASE 2 — SEMPRE
+#   Applica i migration utente da /pb_migrations e serve in foreground.
+#   I nomi dei file utente sono liberi: i settings sono già stati applicati nella fase 1.
 # ===========================================
 normal_boot() {
-  echo "✅ Already initialized — starting PocketBase normally"
   local cmd
   cmd="$(build_cmd)"
   echo "▶️  Starting PocketBase: ${cmd}"
@@ -172,8 +151,8 @@ echo "   Debug:   ${PB_DEBUG:-false}"
 
 mkdir -p "${PB_DATA_DIR}" "${PB_MIGRATIONS_DIR}" "${PB_HOOKS_DIR}" "${PB_PUBLIC_DIR}"
 
-if [ -f "${PB_INIT_LOCK}" ]; then
-  normal_boot
-else
+# first_boot SOLO se il lock non esiste (primo boot / reinit); normal_boot sempre.
+if [ ! -f "${PB_INIT_LOCK}" ]; then
   first_boot
 fi
+normal_boot
