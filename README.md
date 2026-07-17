@@ -123,7 +123,7 @@ per versione.
 
 Se questo progetto ti è utile, considera di supportarne lo sviluppo:
 
-<a href="https://www.buymeacoffee.com/narra.antonio"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=narra.antonio&button_colour=5F7FFF&font_colour=ffffff&font_family=Cookie&outline_colour=000000&coffee_colour=FFDD00" /></a>
+<a href="https://www.buymeacoffee.com/narra.antonio"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=&slug=narra.antonio&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff" /></a>
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/G2G41WWYAM)
 [![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-EA4AAA?style=flat-square&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/narra-antonio)
 
